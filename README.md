@@ -11,6 +11,7 @@
    - `NEXT_PUBLIC_AWS_ACCESS_KEY_ID`: AWS访问密钥ID
    - `NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY`: AWS秘密访问密钥
    - `NEXT_PUBLIC_AWS_BUCKET_NAME`: S3存储桶名称
+   - `CODE`: 应用登录密码
 
 ## 本地开发
 
@@ -32,6 +33,7 @@ npm run build
 - 🚀 快速文件上传/下载
 - 📂 文件管理
 - 🔒 安全的AWS认证
+- 🔐 密码保护
 
 ## 技术栈
 
