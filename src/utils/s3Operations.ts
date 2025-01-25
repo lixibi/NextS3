@@ -1,6 +1,7 @@
 import { PutObjectCommand, GetObjectCommand, ListObjectsCommand, DeleteObjectCommand, GetObjectCommandInput } from "@aws-sdk/client-s3";
 import { getSignedUrl as s3GetSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "./s3Client";
+import { S3Client, ServiceInputTypes, ServiceOutputTypes } from "@aws-sdk/client-s3";
 
 if (!process.env.NEXT_PUBLIC_S3_BUCKET) throw new Error('S3 bucket not configured');
 const BUCKET_NAME = process.env.NEXT_PUBLIC_S3_BUCKET;
@@ -281,18 +282,22 @@ export const checkFileExists = async (key: string) => {
   }
 };
 
-// 添加获取签名URL的函数
-export const getSignedUrl = async (key: string): Promise<string> => {
-  const command = new GetObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: key,
-  });
-  
+// 修改 getSignedUrl 函数的实现
+const getSignedUrl = async (command: any) => {
   try {
-    const url = await s3GetSignedUrl(s3Client, command, { expiresIn: 3600 });
-    return url;
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
+      }
+    });
+
+    // 使用类型断言来解决类型不匹配的问题
+    const presignedUrl = await s3GetSignedUrl(s3Client as any, command, { expiresIn: 3600 });
+    return presignedUrl;
   } catch (error) {
-    console.error('Error getting signed URL:', error);
+    console.error('Error generating signed URL:', error);
     throw error;
   }
 }; 
