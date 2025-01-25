@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["hkg1"],
+  "env": {
+    "NEXT_PUBLIC_AWS_REGION": "REQUIRED",
+    "NEXT_PUBLIC_AWS_ACCESS_KEY_ID": "REQUIRED",
+    "NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY": "REQUIRED",
+    "NEXT_PUBLIC_AWS_BUCKET_NAME": "REQUIRED"
+  }
+} 

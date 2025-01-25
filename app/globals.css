@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: 2 132 199;
+  --primary-hover: 3 105 161;
+  --secondary: 99 102 241;
+  --secondary-hover: 79 70 229;
+  --accent: 139 92 246;
+  --background: 248 250 252;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 30 41 59;
+  --border: 226 232 240;
+  --ring: 147 197 253;
+  --radius: 0.5rem;
+  --muted: 100 116 139;
+  --muted-hover: 71 85 105;
+  --danger: 239 68 68;
+  --danger-hover: 220 38 38;
+  --success: 34 197 94;
+  --success-hover: 22 163 74;
+  --warning: 245 158 11;
+  --warning-hover: 217 119 6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: 56 189 248;
+    --primary-hover: 14 165 233;
+    --secondary: 129 140 248;
+    --secondary-hover: 99 102 241;
+    --accent: 167 139 250;
+    --background: 15 23 42;
+    --foreground: 241 245 249;
+    --card: 30 41 59;
+    --card-foreground: 248 250 252;
+    --border: 51 65 85;
+    --ring: 96 165 250;
+    --muted: 148 163 184;
+    --muted-hover: 203 213 225;
+    --danger: 239 68 68;
+    --danger-hover: 220 38 38;
+    --success: 34 197 94;
+    --success-hover: 22 163 74;
+    --warning: 245 158 11;
+    --warning-hover: 217 119 6;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-card text-card-foreground rounded-lg border border-border 
+           shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium
+           transition-all duration-200 select-none
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-opacity-50
+           disabled:opacity-50 disabled:cursor-not-allowed
+           active:scale-[0.98];
+  }
+  
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-hover text-white
+           focus:ring-primary/50;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary hover:bg-secondary-hover text-white
+           focus:ring-secondary/50;
+  }
+
+  .btn-outline {
+    @apply border border-border bg-transparent hover:bg-background/5
+           text-foreground focus:ring-primary/30;
+  }
+
+  .btn-danger {
+    @apply bg-[rgb(var(--danger))] hover:bg-[rgb(var(--danger-hover))] text-white
+           focus:ring-[rgb(var(--danger))]/50;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-background/5 text-foreground
+           focus:ring-primary/30;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-full bg-transparent 
+           text-muted hover:text-muted-hover hover:bg-background/10
+           focus:ring-primary/30
+           transition-colors duration-200;
+  }
+  
+  .input {
+    @apply w-full px-4 py-2 rounded-md border border-border
+           bg-card text-foreground placeholder:text-muted
+           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+           transition-all duration-200;
+  }
+  
+  .icon-btn {
+    @apply p-2 rounded-full bg-transparent hover:bg-background/10
+           text-muted hover:text-muted-hover
+           transition-colors duration-200 cursor-pointer;
+  }
+
+  .file-list {
+    @apply space-y-4 bg-card rounded-lg border border-border p-4;
+  }
+
+  .file-item {
+    @apply flex items-center justify-between p-3 rounded-lg
+           hover:bg-background/5 dark:hover:bg-background/10
+           transition-colors duration-200;
+  }
+
+  .file-icon {
+    @apply flex items-center justify-center w-10 h-10 rounded-lg
+           bg-background/10;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 bg-foreground/20 backdrop-blur-sm
+           flex items-center justify-center p-4 fade-in;
+  }
+
+  .modal-content {
+    @apply bg-card rounded-lg w-full max-w-lg
+           shadow-xl scale-in;
+  }
+}
+
+/* 动画类 */
+.fade-in {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-scale {
+  @apply transition-transform duration-200 hover:scale-[1.02];
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* 浮动提示 */
+@keyframes slideUpAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDownAndFade {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+
+.toast {
+  @apply fixed bottom-4 right-4 bg-foreground text-card px-4 py-2 rounded-lg shadow-lg
+         text-sm font-medium z-50;
+  animation: slideUpAndFade 0.2s ease-out;
+}
+
+.toast-exit {
+  animation: slideDownAndFade 0.2s ease-out forwards;
+}
