@@ -66,3 +66,15 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# 常见的可以忽略的文件
+node_modules
+.env.local
+.next
+build
+dist
+
+# 确保以下文件没有被忽略
+# package.json
+# next.config.js（如果使用 Next.js）
+# 其他必要的配置文件

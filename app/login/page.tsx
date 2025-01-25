@@ -30,7 +30,8 @@ export default function Login() {
         const data = await response.json();
         setError(data.message || '密码错误');
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Login error:', error);
       setError('验证失败，请重试');
     } finally {
       setIsLoading(false);
