@@ -1,15 +1,16 @@
 {
   "version": 2,
-  "buildCommand": "next build",
-  "devCommand": "next dev",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "regions": ["hkg1"],
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
   "env": {
-    "NEXT_PUBLIC_AWS_REGION": "REQUIRED",
-    "NEXT_PUBLIC_AWS_ACCESS_KEY_ID": "REQUIRED",
-    "NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY": "REQUIRED",
-    "NEXT_PUBLIC_AWS_BUCKET_NAME": "REQUIRED",
-    "CODE": "REQUIRED"
+    "AWS_REGION": "@aws_region",
+    "AWS_ACCESS_KEY_ID": "@aws_access_key_id",
+    "AWS_SECRET_ACCESS_KEY": "@aws_secret_access_key",
+    "NEXT_PUBLIC_S3_BUCKET": "@next_public_s3_bucket",
+    "CODE": "@code"
   }
 } 

@@ -282,8 +282,8 @@ export const checkFileExists = async (key: string) => {
   }
 };
 
-// 修改 getSignedUrl 函数的实现
-const getSignedUrl = async (command: any) => {
+// 将 getSignedUrl 改为导出函数
+export const getSignedUrl = async (command: any) => {
   try {
     const s3Client = new S3Client({
       region: process.env.AWS_REGION,

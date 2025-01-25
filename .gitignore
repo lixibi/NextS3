@@ -78,3 +78,7 @@ dist
 # package.json
 # next.config.js（如果使用 Next.js）
 # 其他必要的配置文件
+
+# Vercel
+.vercel
+.env*.local
