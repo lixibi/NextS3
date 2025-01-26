@@ -1,11 +1,8 @@
 import { PutObjectCommand, GetObjectCommand, ListObjectsCommand, DeleteObjectCommand, GetObjectCommandInput } from "@aws-sdk/client-s3";
 import { getSignedUrl as s3GetSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3Client } from "./s3Client";
+import { getS3Client, getCurrentBucket, resetS3Client } from "./s3Client";
 import { S3Client, ServiceInputTypes, ServiceOutputTypes } from "@aws-sdk/client-s3";
 import { format } from "date-fns";
-
-// 使用 s3Client.ts 中已经验证过的环境变量
-const BUCKET_NAME = process.env.NEXT_PUBLIC_S3_BUCKET!;
 
 // 类型定义
 interface FileMetadata {
@@ -43,6 +40,8 @@ async function calculateFileHash(file: File): Promise<string> {
 
 // 导出函数
 export const uploadText = async (text: string): Promise<void> => {
+  const s3Client = getS3Client();
+  const BUCKET_NAME = getCurrentBucket();
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: `text-${Date.now()}.txt`,
@@ -58,6 +57,8 @@ export const uploadFile = async (
   onProgress?: ProgressCallback
 ): Promise<FileMetadata> => {
   try {
+    const s3Client = getS3Client();
+    const BUCKET_NAME = getCurrentBucket();
     if (!forceOverwrite) {
       const listCommand = new ListObjectsCommand({
         Bucket: BUCKET_NAME,
@@ -138,49 +139,66 @@ async function calculateFileETag(file: File): Promise<string> {
 }
 
 export const listFiles = async () => {
-  const command = new ListObjectsCommand({
-    Bucket: BUCKET_NAME,
-  });
-  
-  const response = await s3Client.send(command);
-  const contents = response.Contents || [];
-  
-  // 获取所有文本文件的内容
-  const filesWithContent = await Promise.all(
-    contents.map(async (file) => {
-      const result = {
-        ...file,
-        LastModified: new Date(file.LastModified || ''),
-        IsText: file.Key?.startsWith('text-'),
-        Preview: undefined as string | undefined
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      const s3Client = getS3Client();
+      const BUCKET_NAME = getCurrentBucket();
+      const command = new ListObjectsCommand({
+        Bucket: BUCKET_NAME,
+      });
+      
+      const response = await s3Client.send(command);
+      const contents = response.Contents || [];
+      
+      // 获取所有文本文件的内容
+      const filesWithContent = await Promise.all(
+        contents.map(async (file) => {
+          const result = {
+            ...file,
+            LastModified: new Date(file.LastModified || ''),
+            IsText: file.Key?.startsWith('text-'),
+            Preview: undefined as string | undefined
+          };
+
+          if (file.Key?.startsWith('text-')) {
+            try {
+              const text = await previewTextFile(file.Key);
+              result.Preview = text.slice(0, 50); // 只取前50个字符作为预览
+            } catch (error) {
+              // 如果文件不存在或读取失败，设置一个默认预览文本
+              result.Preview = '无法加载预览';
+              // 不抛出错误，继续处理其他文件
+            }
+          }
+
+          return result;
+        })
+      ).catch(error => {
+        console.error('Error processing files:', error);
+        return []; // 如果出错返回空数组
+      });
+
+      return {
+        ...response,
+        Contents: filesWithContent
       };
-
-      if (file.Key?.startsWith('text-')) {
-        try {
-          const text = await previewTextFile(file.Key);
-          result.Preview = text.slice(0, 50); // 只取前50个字符作为预览
-        } catch (error) {
-          // 如果文件不存在或读取失败，设置一个默认预览文本
-          result.Preview = '无法加载预览';
-          // 不抛出错误，继续处理其他文件
-        }
+    } catch (error) {
+      console.error(`列表获取失败，剩余重试次数: ${retries - 1}`, error);
+      retries--;
+      if (retries === 0) {
+        throw error;
       }
-
-      return result;
-    })
-  ).catch(error => {
-    console.error('Error processing files:', error);
-    return []; // 如果出错返回空数组
-  });
-
-  return {
-    ...response,
-    Contents: filesWithContent
-  };
+      // 等待一秒后重试
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
 };
 
 // 下载文件
 export const downloadFile = async (key: string) => {
+  const s3Client = getS3Client();
+  const BUCKET_NAME = getCurrentBucket();
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -227,6 +245,8 @@ export const downloadFile = async (key: string) => {
 
 // 预览图片
 export const previewImage = async (key: string): Promise<string> => {
+  const s3Client = getS3Client();
+  const BUCKET_NAME = getCurrentBucket();
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -247,6 +267,8 @@ export const previewImage = async (key: string): Promise<string> => {
 
 // 新增预览文本文件功能
 export const previewTextFile = async (key: string) => {
+  const s3Client = getS3Client();
+  const BUCKET_NAME = getCurrentBucket();
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -281,6 +303,8 @@ export const handlePreview = async (key: string) => {
 
 // 添加删除文件功能
 export const deleteFile = async (key: string) => {
+  const s3Client = getS3Client();
+  const BUCKET_NAME = getCurrentBucket();
   const command = new DeleteObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -315,6 +339,8 @@ export const deleteFile = async (key: string) => {
 
 // 添加检查文件是否存在的函数
 export const checkFileExists = async (key: string) => {
+  const s3Client = getS3Client();
+  const BUCKET_NAME = getCurrentBucket();
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -334,6 +360,7 @@ export const checkFileExists = async (key: string) => {
 // 将 getSignedUrl 改为内部函数，不再导出
 const getSignedUrl = async (command: GetObjectCommand): Promise<string> => {
   try {
+    const s3Client = getS3Client();
     return await s3GetSignedUrl(s3Client, command, { 
       expiresIn: 3600 
     });
