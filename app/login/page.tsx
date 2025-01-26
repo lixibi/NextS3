@@ -16,19 +16,14 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      });
-
-      if (response.ok) {
-        router.replace('/');
+      if (code === process.env.NEXT_PUBLIC_CODE) {
+        // 存储验证状态
+        localStorage.setItem('isAuthenticated', 'true');
+        // 跳转到主页
+        router.push('/');
+        router.refresh();
       } else {
-        const data = await response.json();
-        setError(data.message || '密码错误');
+        setError('密码错误');
       }
     } catch (error) {
       console.error('Login error:', error);
