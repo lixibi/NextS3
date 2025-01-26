@@ -766,12 +766,20 @@ export default function Home() {
   // 获取连接配置
   const fetchConnectionConfig = async (code: string) => {
     try {
-      const response = await fetch(`https://api.example.com/connection/${code}`);
+      const response = await fetch(`http://127.0.0.1:8000/api/connection/${code}`);
+      
       if (!response.ok) {
-        throw new Error('无效的连接码');
+        throw new Error('获取配置失败');
       }
-      const data = await response.json();
-      return data;
+
+      const config = await response.json();
+      
+      // 验证返回的配置是否完整
+      if (!config.endpoint || !config.accessKey || !config.secretKey || !config.region || !config.bucket) {
+        throw new Error('配置信息不完整');
+      }
+
+      return config;
     } catch (error) {
       console.error('获取配置失败:', error);
       throw error;

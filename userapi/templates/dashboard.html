@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}个人中心{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold">多人文件助手</h1>
+                </div>
+                <div class="flex items-center">
+                    <span id="username" class="mr-4"></span>
+                    <button onclick="logout()" class="text-red-500 hover:text-red-600">退出登录</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-medium mb-4">我的连接码</h2>
+                <div id="codesList" class="space-y-4"></div>
+                <button onclick="showNewCodeForm()" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                    新建连接码
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 新建连接码对话框 -->
+    <div id="newCodeModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 w-96">
+            <h3 class="text-lg font-medium mb-4">新建连接码</h3>
+            <form id="newCodeForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">端点</label>
+                    <input type="text" name="endpoint" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Access Key</label>
+                    <input type="text" name="access_key" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Secret Key</label>
+                    <input type="password" name="secret_key" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">区域</label>
+                    <input type="text" name="region" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">存储桶</label>
+                    <input type="text" name="bucket" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">描述</label>
+                    <input type="text" name="description" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideNewCodeForm()" class="px-4 py-2 border rounded-md hover:bg-gray-50">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 添加一个显示连接配置的模态框 -->
+    <div id="viewCodeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h2 class="text-lg font-medium mb-4">连接配置</h2>
+            <div id="codeDetails" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">连接码</label>
+                    <input type="text" id="viewCode" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">端点</label>
+                    <input type="text" id="viewEndpoint" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Access Key</label>
+                    <input type="text" id="viewAccessKey" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Secret Key</label>
+                    <input type="text" id="viewSecretKey" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Region</label>
+                    <input type="text" id="viewRegion" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Bucket</label>
+                    <input type="text" id="viewBucket" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 bg-gray-50" readonly>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end space-x-2">
+                <button onclick="copyConfig()" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">复制配置</button>
+                <button onclick="hideViewCodeModal()" class="px-4 py-2 border rounded-md hover:bg-gray-50">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let user = null;
+
+// 检查登录状态
+function checkAuth() {
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+        window.location.href = '/';
+        return;
+    }
+    user = JSON.parse(userData);
+    document.getElementById('username').textContent = user.username;
+    loadCodes();
+}
+
+// 加载连接码列表
+async function loadCodes() {
+    try {
+        const response = await fetch(`/api/user/${user.id}/codes`);
+        const data = await response.json();
+        const codesList = document.getElementById('codesList');
+        codesList.innerHTML = data.map(code => `
+            <div class="border rounded-lg p-4 mb-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-medium">${code.code}</h3>
+                        <p class="text-sm text-gray-500">${code.description || '无描述'}</p>
+                        <p class="text-xs text-gray-400">${new Date(code.created_at).toLocaleString()}</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="viewCode('${code.code}')" class="text-green-500 hover:text-green-600">查看</button>
+                        <button onclick="editCode('${code.code}')" class="text-blue-500 hover:text-blue-600">编辑</button>
+                        <button onclick="deleteCode('${code.code}')" class="text-red-500 hover:text-red-600">删除</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('加载连接码失败:', error);
+    }
+}
+
+// 删除连接码
+async function deleteCode(code) {
+    if (!confirm('确定要删除这个连接码吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/user/${user.id}/codes/${code}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            loadCodes();  // 重新加载列表
+        } else {
+            const data = await response.json();
+            alert(data.detail || '删除失败');
+        }
+    } catch (error) {
+        console.error('删除失败:', error);
+        alert('删除失败');
+    }
+}
+
+// 编辑连接码
+async function editCode(code) {
+    try {
+        console.log(`Fetching details for code: ${code}`);
+        const response = await fetch(`/api/user/${user.id}/codes/${code}`);
+        console.log('Response status:', response.status);
+        
+        const text = await response.text();
+        console.log('Response text:', text);
+        
+        const data = JSON.parse(text);
+        console.log('Parsed data:', data);
+        
+        if (response.ok) {
+            // 填充表单
+            const form = document.getElementById('newCodeForm');
+            console.log('Filling form with data:', data);
+            
+            // 填充所有字段
+            form.endpoint.value = data.endpoint || '';
+            form.access_key.value = data.access_key || '';
+            form.secret_key.value = data.secret_key || '';
+            form.region.value = data.region || '';
+            form.bucket.value = data.bucket || '';
+            form.description.value = data.description || '';
+            
+            // 修改表单提交处理
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const formData = new FormData(form);
+                
+                try {
+                    const updateResponse = await fetch(`/api/user/${user.id}/codes/${code}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            endpoint: formData.get('endpoint'),
+                            access_key: formData.get('access_key'),
+                            secret_key: formData.get('secret_key'),
+                            region: formData.get('region'),
+                            bucket: formData.get('bucket'),
+                            description: formData.get('description'),
+                        }),
+                    });
+                    
+                    if (updateResponse.ok) {
+                        hideNewCodeForm();
+                        loadCodes();
+                    } else {
+                        const errorData = await updateResponse.json();
+                        alert(errorData.detail || '更新失败');
+                    }
+                } catch (error) {
+                    console.error('更新失败:', error);
+                    alert('更新失败');
+                }
+            };
+            
+            // 显示表单并修改标题
+            document.getElementById('newCodeModal').classList.remove('hidden');
+            // 找到表单标题并修改
+            const formTitle = document.querySelector('#newCodeModal h2');
+            if (formTitle) {
+                formTitle.textContent = '编辑连接码';
+            }
+        } else {
+            alert(data.detail || '加载连接码详情失败');
+        }
+    } catch (error) {
+        console.error('加载连接码详情失败:', error);
+        alert('加载连接码详情失败');
+    }
+}
+
+// 显示新建连接码表单
+function showNewCodeForm() {
+    const form = document.getElementById('newCodeForm');
+    form.reset();
+    
+    // 恢复表单标题
+    const formTitle = document.querySelector('#newCodeModal h2');
+    if (formTitle) {
+        formTitle.textContent = '新建连接码';
+    }
+    
+    // 恢复默认的提交处理
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        try {
+            const response = await fetch(`/api/user/${user.id}/codes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    endpoint: formData.get('endpoint'),
+                    access_key: formData.get('access_key'),
+                    secret_key: formData.get('secret_key'),
+                    region: formData.get('region'),
+                    bucket: formData.get('bucket'),
+                    description: formData.get('description'),
+                }),
+            });
+            
+            if (response.ok) {
+                hideNewCodeForm();
+                loadCodes();
+            } else {
+                const data = await response.json();
+                alert(data.detail || '创建失败');
+            }
+        } catch (error) {
+            console.error('创建失败:', error);
+            alert('创建失败');
+        }
+    };
+    
+    document.getElementById('newCodeModal').classList.remove('hidden');
+}
+
+// 隐藏新建连接码表单
+function hideNewCodeForm() {
+    document.getElementById('newCodeModal').classList.add('hidden');
+    document.getElementById('newCodeForm').reset();
+}
+
+// 退出登录
+function logout() {
+    localStorage.removeItem('user');
+    window.location.href = '/';
+}
+
+// 查看连接码配置
+async function viewCode(code) {
+    try {
+        const response = await fetch(`/api/connection/${code}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            // 填充查看表单
+            document.getElementById('viewCode').value = code;
+            document.getElementById('viewEndpoint').value = data.endpoint;
+            document.getElementById('viewAccessKey').value = data.accessKey;
+            document.getElementById('viewSecretKey').value = data.secretKey;
+            document.getElementById('viewRegion').value = data.region;
+            document.getElementById('viewBucket').value = data.bucket;
+            
+            // 显示模态框
+            document.getElementById('viewCodeModal').classList.remove('hidden');
+        } else {
+            alert(data.detail || '获取配置失败');
+        }
+    } catch (error) {
+        console.error('获取配置失败:', error);
+        alert('获取配置失败');
+    }
+}
+
+// 复制配置到剪贴板
+function copyConfig() {
+    const config = {
+        endpoint: document.getElementById('viewEndpoint').value,
+        accessKey: document.getElementById('viewAccessKey').value,
+        secretKey: document.getElementById('viewSecretKey').value,
+        region: document.getElementById('viewRegion').value,
+        bucket: document.getElementById('viewBucket').value
+    };
+    
+    navigator.clipboard.writeText(JSON.stringify(config, null, 2))
+        .then(() => alert('配置已复制到剪贴板'))
+        .catch(err => {
+            console.error('复制失败:', err);
+            alert('复制失败');
+        });
+}
+
+// 隐藏查看模态框
+function hideViewCodeModal() {
+    document.getElementById('viewCodeModal').classList.add('hidden');
+}
+
+// 页面加载时检查登录状态
+checkAuth();
+</script>
+{% endblock %} 
