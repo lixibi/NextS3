@@ -711,16 +711,7 @@ export default function Home() {
         <div className="p-4">
           <div className="flex flex-col items-center">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">多人文件助手</h1>
-            <div className="flex items-center justify-between w-full relative">
-              <div className="absolute inset-x-0 text-center">
-                <p className="text-sm text-gray-500">multfilehelper by hebeos</p>
-              </div>
-              <div className="ml-auto z-10">
-                <a href="/login" className="text-sm text-gray-500 hover:text-gray-900 transition-colors duration-200">
-                  登录
-                </a>
-              </div>
-            </div>
+            <p className="text-sm text-gray-500">multfilehelper by hebeos</p>
           </div>
         </div>
       </div>

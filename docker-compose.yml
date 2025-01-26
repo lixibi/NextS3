@@ -5,25 +5,24 @@ services:
     build:
       context: .
       args:
-        - NEXT_PUBLIC_S3_ENDPOINT=${NEXT_PUBLIC_S3_ENDPOINT}
-        - NEXT_PUBLIC_S3_ACCESS_KEY=${NEXT_PUBLIC_S3_ACCESS_KEY}
-        - NEXT_PUBLIC_S3_SECRET_KEY=${NEXT_PUBLIC_S3_SECRET_KEY}
-        - NEXT_PUBLIC_S3_REGION=${NEXT_PUBLIC_S3_REGION}
-        - NEXT_PUBLIC_S3_BUCKET=${NEXT_PUBLIC_S3_BUCKET}
-        - CODE=${CODE}
-        - NEXT_PUBLIC_CODE=${NEXT_PUBLIC_CODE}
+        NEXT_PUBLIC_S3_ENDPOINT: ${NEXT_PUBLIC_S3_ENDPOINT}
+        NEXT_PUBLIC_S3_ACCESS_KEY: ${NEXT_PUBLIC_S3_ACCESS_KEY}
+        NEXT_PUBLIC_S3_SECRET_KEY: ${NEXT_PUBLIC_S3_SECRET_KEY}
+        NEXT_PUBLIC_S3_REGION: ${NEXT_PUBLIC_S3_REGION}
+        NEXT_PUBLIC_S3_BUCKET: ${NEXT_PUBLIC_S3_BUCKET}
     container_name: nexts3
     ports:
       - "3060:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_S3_ENDPOINT=http://s.lixining.com:3009
+      - NEXT_PUBLIC_S3_ENDPOINT=${NEXT_PUBLIC_S3_ENDPOINT}
       - NEXT_PUBLIC_S3_ACCESS_KEY=${NEXT_PUBLIC_S3_ACCESS_KEY}
       - NEXT_PUBLIC_S3_SECRET_KEY=${NEXT_PUBLIC_S3_SECRET_KEY}
       - NEXT_PUBLIC_S3_REGION=${NEXT_PUBLIC_S3_REGION}
       - NEXT_PUBLIC_S3_BUCKET=${NEXT_PUBLIC_S3_BUCKET}
-      - CODE=${CODE}
-      - NEXT_PUBLIC_CODE=${NEXT_PUBLIC_CODE}
+    volumes:
+      - /app/node_modules
+      - /app/.next
     restart: unless-stopped
     network_mode: "bridge"
 
