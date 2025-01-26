@@ -80,6 +80,20 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+<<<<<<< Updated upstream
+=======
+  const [showConfig, setShowConfig] = useState(false);
+  const [config, setConfig] = useState({
+    endpoint: process.env.NEXT_PUBLIC_S3_ENDPOINT || '',
+    accessKey: process.env.NEXT_PUBLIC_S3_ACCESS_KEY || '',
+    secretKey: process.env.NEXT_PUBLIC_S3_SECRET_KEY || '',
+    region: process.env.NEXT_PUBLIC_S3_REGION || '',
+    bucket: process.env.NEXT_PUBLIC_S3_BUCKET || ''
+  });
+  const [configMode, setConfigMode] = useState<'simple' | 'advanced'>('simple');
+  const [connectionCode, setConnectionCode] = useState<string>('');
+  const [isConnecting, setIsConnecting] = useState(false);
+>>>>>>> Stashed changes
 
   // 获取文件图标
   const getFileIcon = (fileName: string) => {
@@ -1084,6 +1098,239 @@ export default function Home() {
           </div>
         </div>
       )}
+<<<<<<< Updated upstream
+=======
+
+      {/* 配置模态框 */}
+      {showConfig && (
+        <div className="modal-overlay">
+          <div className="modal-content max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <Settings className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">系统配置</h3>
+              </div>
+              <button
+                onClick={() => setShowConfig(false)}
+                className="icon-btn"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 配置模式切换 */}
+            <div className="p-4 border-b border-border">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfigMode('simple')}
+                  className={`btn flex-1 ${configMode === 'simple' ? 'bg-gray-900 text-white' : 'border border-gray-200'}`}
+                >
+                  简易模式
+                </button>
+                <button
+                  onClick={() => setConfigMode('advanced')}
+                  className={`btn flex-1 ${configMode === 'advanced' ? 'bg-gray-900 text-white' : 'border border-gray-200'}`}
+                >
+                  高级模式
+                </button>
+              </div>
+            </div>
+
+            {configMode === 'simple' ? (
+              // 简易模式
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">连接码</label>
+                  <input
+                    type="text"
+                    value={connectionCode}
+                    onChange={(e) => setConnectionCode(e.target.value)}
+                    className="input"
+                    placeholder="请输入连接码"
+                  />
+                </div>
+                <div className="text-sm text-gray-500">
+                  <p>没有连接码？</p>
+                  <a 
+                    href="" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    点击这里查看连接码教程
+                  </a>
+                </div>
+                <button
+                  onClick={handleConnect}
+                  disabled={isConnecting}
+                  className="btn bg-gray-900 hover:bg-gray-800 text-white w-full"
+                >
+                  {isConnecting ? '连接中...' : '连接'}
+                </button>
+              </div>
+            ) : (
+              // 高级模式
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">MinIO 端点</label>
+                  <input
+                    type="text"
+                    value={config.endpoint}
+                    onChange={(e) => setConfig(prev => ({ ...prev, endpoint: e.target.value }))}
+                    className="input"
+                    placeholder="例如: http://s3.example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Access Key</label>
+                  <input
+                    type="text"
+                    value={config.accessKey}
+                    onChange={(e) => setConfig(prev => ({ ...prev, accessKey: e.target.value }))}
+                    className="input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Secret Key</label>
+                  <input
+                    type="password"
+                    value={config.secretKey}
+                    onChange={(e) => setConfig(prev => ({ ...prev, secretKey: e.target.value }))}
+                    className="input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">区域</label>
+                  <input
+                    type="text"
+                    value={config.region}
+                    onChange={(e) => setConfig(prev => ({ ...prev, region: e.target.value }))}
+                    className="input"
+                    placeholder="例如: us-east-1"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">存储桶</label>
+                  <input
+                    type="text"
+                    value={config.bucket}
+                    onChange={(e) => setConfig(prev => ({ ...prev, bucket: e.target.value }))}
+                    className="input"
+                  />
+                </div>
+                <div className="pt-4 border-t border-border space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">当前连接码</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={connectionCode || '尚未生成连接码'}
+                        readOnly
+                        className="input bg-gray-50 flex-1"
+                      />
+                      <button
+                        onClick={() => {
+                          if (connectionCode) {
+                            navigator.clipboard.writeText(connectionCode);
+                            showToast('已复制连接码');
+                          }
+                        }}
+                        className="btn border border-gray-200 hover:bg-gray-100"
+                        disabled={!connectionCode}
+                        title="复制连接码"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {connectionCode ? '可以复制此连接码分享给其他用户' : '点击下方按钮生成连接码'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium">生成新连接码</h4>
+                      <p className="text-xs text-gray-500 mt-1">
+                        将当前配置生成链接码，方便分享给其他用户
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          // 验证所有必填字段
+                          if (!config.endpoint || !config.accessKey || !config.secretKey || !config.region || !config.bucket) {
+                            showToast('请填写所有配置项');
+                            return;
+                          }
+
+                          const response = await fetch('http://127.0.0.1:8000/api/temp-codes', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              config_json: JSON.stringify({
+                                endpoint: config.endpoint,
+                                accessKey: config.accessKey,
+                                secretKey: config.secretKey,
+                                region: config.region,
+                                bucket: config.bucket
+                              })
+                            })
+                          });
+
+                          const data = await response.json();
+
+                          if (!response.ok) {
+                            throw new Error(data.detail || '生成链接码失败');
+                          }
+
+                          // 更新显示的连接码
+                          setConnectionCode(data.code);
+                          
+                          // 复制到剪贴板
+                          await navigator.clipboard.writeText(data.code);
+                          
+                          // 显示提示
+                          if (data.status === 'existing') {
+                            showToast('已复制已存在的链接码：' + data.code);
+                          } else {
+                            showToast('已生成并复制新链接码：' + data.code);
+                          }
+                        } catch (error: any) {
+                          console.error('生成链接码失败:', error);
+                          showToast(error.message || '生成链接码失败');
+                        }
+                      }}
+                      className="btn bg-primary hover:bg-primary/90 text-white"
+                    >
+                      生成链接码
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 p-4 border-t border-border">
+              <button
+                onClick={() => setShowConfig(false)}
+                className="btn border border-gray-200 hover:bg-gray-100"
+              >
+                取消
+              </button>
+              {configMode === 'advanced' && (
+                <button
+                  onClick={saveConfig}
+                  className="btn bg-gray-900 hover:bg-gray-800 text-white"
+                >
+                  保存配置
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+>>>>>>> Stashed changes
     </main>
   );
 }
