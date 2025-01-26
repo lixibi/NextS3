@@ -16,10 +16,18 @@ export default function Login() {
     setError('');
 
     try {
-      if (code === process.env.NEXT_PUBLIC_CODE) {
-        // 存储验证状态
+      const expectedCode = process.env.NEXT_PUBLIC_CODE;
+      
+      // 检查环境变量是否存在
+      if (!expectedCode) {
+        console.error('未设置 NEXT_PUBLIC_CODE 环境变量');
+        setError('系统配置错误');
+        return;
+      }
+
+      // 验证密码
+      if (code === expectedCode) {
         localStorage.setItem('isAuthenticated', 'true');
-        // 跳转到主页
         router.push('/');
         router.refresh();
       } else {
