@@ -331,8 +331,8 @@ export const checkFileExists = async (key: string) => {
   }
 };
 
-// 修改 getSignedUrl 函数，使用统一的 s3Client
-export const getSignedUrl = async (command: GetObjectCommand): Promise<string> => {
+// 将 getSignedUrl 改为内部函数，不再导出
+const getSignedUrl = async (command: GetObjectCommand): Promise<string> => {
   try {
     return await s3GetSignedUrl(s3Client, command, { 
       expiresIn: 3600 
