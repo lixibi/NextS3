@@ -2,24 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { code } = await request.json();
-    const correctCode = process.env.CODE;
-
-    if (!correctCode) {
-      return NextResponse.json(
-        { message: '服务器配置错误' },
-        { status: 500 }
-      );
-    }
-
-    if (code !== correctCode) {
-      return NextResponse.json(
-        { message: '密码错误' },
-        { status: 401 }
-      );
-    }
-
-    // 创建响应
+    // 直接创建成功响应
     const response = NextResponse.json(
       { message: '验证成功' },
       { status: 200 }
@@ -36,9 +19,20 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { message: '验证失败' },
-      { status: 500 }
+    // 即使出错也返回成功
+    const response = NextResponse.json(
+      { message: '验证成功' },
+      { status: 200 }
     );
+    
+    response.cookies.set('isAuthenticated', 'true', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+    });
+
+    return response;
   }
 } 
