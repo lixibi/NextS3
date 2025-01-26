@@ -3,81 +3,92 @@ import { getSignedUrl as s3GetSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "./s3Client";
 import { S3Client, ServiceInputTypes, ServiceOutputTypes } from "@aws-sdk/client-s3";
 
-if (!process.env.NEXT_PUBLIC_S3_BUCKET) throw new Error('S3 bucket not configured');
-const BUCKET_NAME = process.env.NEXT_PUBLIC_S3_BUCKET;
+// 使用 s3Client.ts 中已经验证过的环境变量
+const BUCKET_NAME = process.env.NEXT_PUBLIC_S3_BUCKET!;
 
-export const uploadText = async (text: string) => {
-  const command = new PutObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: `text-${Date.now()}.txt`, // 简化文件名
-    Body: text,
-  });
-  
-  return await s3Client.send(command);
-};
-
-// 添加计算文件哈希值的函数
-async function calculateFileHash(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
-}
-
-// 添加类型定义
-type FileMetadata = {
+// 类型定义
+interface FileMetadata {
   etag: string;
   name: string;
   size: number;
   type: string;
   lastModified: Date;
-};
+}
 
-// 添加上传进度回调类型
+interface S3Error extends Error {
+  name: string;
+  code?: string;
+}
+
 type ProgressCallback = (progress: number) => void;
 
-// 修改上传文件函数
+// 文件上传错误类型
+interface FileExistsError {
+  code: 'FILE_EXISTS';
+  existingFile: {
+    name: string;
+    size: number;
+    lastModified: Date;
+  };
+}
+
+// 工具函数
+async function calculateFileHash(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 导出函数
+export const uploadText = async (text: string): Promise<void> => {
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: `text-${Date.now()}.txt`,
+    Body: text,
+  });
+  
+  await s3Client.send(command);
+};
+
 export const uploadFile = async (
   file: File, 
   forceOverwrite = false,
   onProgress?: ProgressCallback
-) => {
+): Promise<FileMetadata> => {
   try {
     if (!forceOverwrite) {
-      // 检查文件是否存在
       const listCommand = new ListObjectsCommand({
         Bucket: BUCKET_NAME,
       });
       
       const response = await s3Client.send(listCommand);
-      const contents = response.Contents || [];
+      const existingFile = response.Contents?.find(item => item.Key === file.name);
       
-      // 只检查文件名是否存在
-      const existingFile = contents.find(item => item.Key === file.name);
       if (existingFile) {
-        throw {
+        const error: FileExistsError = {
           code: 'FILE_EXISTS',
           existingFile: {
-            name: existingFile.Key,
-            size: existingFile.Size,
-            lastModified: new Date(existingFile.LastModified || ''),
+            name: existingFile.Key!,
+            size: existingFile.Size!,
+            lastModified: new Date(existingFile.LastModified!),
           }
         };
+        throw error;
       }
     }
 
-    // 获取预签名URL
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: file.name,
       ContentType: file.type,
     });
 
-    const presignedUrl = await s3GetSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const presignedUrl = await s3GetSignedUrl(s3Client, command, { 
+      expiresIn: 3600 
+    });
 
-    // 使用 XMLHttpRequest 上传文件
-    return new Promise<any>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       
       xhr.upload.onprogress = (event) => {
@@ -87,9 +98,10 @@ export const uploadFile = async (
         }
       };
 
-      xhr.onload = async () => {
+      xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve({
+            etag: xhr.getResponseHeader('ETag') || '',
             name: file.name,
             size: file.size,
             type: file.type,
@@ -100,20 +112,18 @@ export const uploadFile = async (
         }
       };
 
-      xhr.onerror = () => {
-        reject(new Error('Network error during upload'));
-      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
       
       xhr.open('PUT', presignedUrl, true);
       xhr.setRequestHeader('Content-Type', file.type);
       xhr.send(file);
     });
   } catch (error) {
-    if ((error as any).code === 'FILE_EXISTS') {
+    if ((error as FileExistsError).code === 'FILE_EXISTS') {
       throw error;
     }
     console.error('Error uploading file:', error);
-    throw error;
+    throw new Error('文件上传失败');
   }
 };
 
@@ -282,22 +292,14 @@ export const checkFileExists = async (key: string) => {
   }
 };
 
-// 将 getSignedUrl 改为导出函数
-export const getSignedUrl = async (command: any) => {
+// 修改 getSignedUrl 函数，使用统一的 s3Client
+export const getSignedUrl = async (command: GetObjectCommand): Promise<string> => {
   try {
-    const s3Client = new S3Client({
-      region: process.env.AWS_REGION,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-      }
+    return await s3GetSignedUrl(s3Client, command, { 
+      expiresIn: 3600 
     });
-
-    // 使用类型断言来解决类型不匹配的问题
-    const presignedUrl = await s3GetSignedUrl(s3Client as any, command, { expiresIn: 3600 });
-    return presignedUrl;
   } catch (error) {
     console.error('Error generating signed URL:', error);
-    throw error;
+    throw new Error('无法生成签名 URL');
   }
 }; 
