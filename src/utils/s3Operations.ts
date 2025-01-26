@@ -341,4 +341,4 @@ export const getSignedUrl = async (command: GetObjectCommand): Promise<string> =
     console.error('Error generating signed URL:', error);
     throw new Error('无法生成签名 URL');
   }
-}; 
+};
