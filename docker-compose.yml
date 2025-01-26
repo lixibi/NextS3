@@ -22,8 +22,8 @@ services:
       - NEXT_PUBLIC_S3_SECRET_KEY=${NEXT_PUBLIC_S3_SECRET_KEY}
       - NEXT_PUBLIC_S3_REGION=${NEXT_PUBLIC_S3_REGION}
       - NEXT_PUBLIC_S3_BUCKET=${NEXT_PUBLIC_S3_BUCKET}
-      - CODE=${CODE}
-      - NEXT_PUBLIC_CODE=${NEXT_PUBLIC_CODE}
+      - CODE=siling
+      - NEXT_PUBLIC_CODE=siling
     restart: unless-stopped
     network_mode: "bridge"
 
