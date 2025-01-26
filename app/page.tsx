@@ -23,10 +23,12 @@ import {
   FileAudio,     // 音频文件
   Presentation,  // 演示文稿
   FileCheck,     // Word文档
-  Copy          // 添加复制图标
+  Copy,          // 添加复制图标
+  Settings
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { getS3Client, getCurrentBucket, resetS3Client } from '@/utils/s3Client';
 
 interface S3ResponseObject {
   Key?: string;
@@ -54,6 +56,12 @@ type FileType = {
 // 修改 FilterType 类型
 type FilterType = 'all' | 'message' | 'file' | 'media';
 
+// 添加连接码配置接口
+interface ConnectionConfig {
+  code: string;
+  endpoint: string;
+}
+
 export default function Home() {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<FileType[]>([]);
@@ -80,6 +88,17 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [config, setConfig] = useState({
+    endpoint: process.env.NEXT_PUBLIC_S3_ENDPOINT || '',
+    accessKey: process.env.NEXT_PUBLIC_S3_ACCESS_KEY || '',
+    secretKey: process.env.NEXT_PUBLIC_S3_SECRET_KEY || '',
+    region: process.env.NEXT_PUBLIC_S3_REGION || '',
+    bucket: process.env.NEXT_PUBLIC_S3_BUCKET || ''
+  });
+  const [configMode, setConfigMode] = useState<'simple' | 'advanced'>('simple');
+  const [connectionCode, setConnectionCode] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // 获取文件图标
   const getFileIcon = (fileName: string) => {
@@ -704,6 +723,96 @@ export default function Home() {
     }
   };
 
+  // 加载本地配置
+  useEffect(() => {
+    const localConfig = localStorage.getItem('s3Config');
+    if (localConfig) {
+      setConfig(JSON.parse(localConfig));
+    }
+  }, []);
+
+  // 保存配置
+  const saveConfig = () => {
+    // 验证配置
+    if (!config.endpoint || !config.accessKey || !config.secretKey || !config.region || !config.bucket) {
+      showToast('请填写所有配置项');
+      return;
+    }
+
+    // 确保 endpoint 是有效的 URL
+    try {
+      new URL(config.endpoint);
+    } catch (e) {
+      showToast('请输入有效的端点 URL');
+      return;
+    }
+
+    localStorage.setItem('s3Config', JSON.stringify(config));
+    resetS3Client();
+    
+    // 测试连接
+    listFiles()
+      .then(() => {
+        showToast('配置保存成功');
+        setShowConfig(false);
+        window.location.reload();
+      })
+      .catch((error) => {
+        console.error('配置测试失败:', error);
+        showToast('配置测试失败，请检查配置是否正确');
+      });
+  };
+
+  // 获取连接配置
+  const fetchConnectionConfig = async (code: string) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/connection/${code}`);
+      
+      if (!response.ok) {
+        throw new Error('获取配置失败');
+      }
+
+      const config = await response.json();
+      
+      // 验证返回的配置是否完整
+      if (!config.endpoint || !config.accessKey || !config.secretKey || !config.region || !config.bucket) {
+        throw new Error('配置信息不完整');
+      }
+
+      return config;
+    } catch (error) {
+      console.error('获取配置失败:', error);
+      throw error;
+    }
+  };
+
+  // 处理连接码连接
+  const handleConnect = async () => {
+    if (!connectionCode.trim()) {
+      showToast('请输入连接码');
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      const connectionConfig = await fetchConnectionConfig(connectionCode);
+      setConfig(connectionConfig);
+      localStorage.setItem('s3Config', JSON.stringify(connectionConfig));
+      resetS3Client();
+      
+      // 测试连接
+      await listFiles();
+      showToast('连接成功');
+      setShowConfig(false);
+      window.location.reload();
+    } catch (error) {
+      console.error('连接失败:', error);
+      showToast('连接失败，请检查连接码是否正确');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   return (
     <main className="min-h-screen p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
       {/* 标题区域 */}
@@ -711,7 +820,16 @@ export default function Home() {
         <div className="p-4">
           <div className="flex flex-col items-center">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">多人文件助手</h1>
-            <p className="text-sm text-gray-500">multfilehelper by hebeos</p>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-gray-500">multfilehelper by hebeos</p>
+              <button
+                onClick={() => setShowConfig(true)}
+                className="icon-btn hover:text-gray-900"
+                title="配置"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1071,6 +1189,146 @@ export default function Home() {
                 alt="预览图片"
                 className="absolute inset-0 w-full h-full object-contain"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 配置模态框 */}
+      {showConfig && (
+        <div className="modal-overlay">
+          <div className="modal-content max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <Settings className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">系统配置</h3>
+              </div>
+              <button
+                onClick={() => setShowConfig(false)}
+                className="icon-btn"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 配置模式切换 */}
+            <div className="p-4 border-b border-border">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfigMode('simple')}
+                  className={`btn flex-1 ${configMode === 'simple' ? 'bg-gray-900 text-white' : 'border border-gray-200'}`}
+                >
+                  简易模式
+                </button>
+                <button
+                  onClick={() => setConfigMode('advanced')}
+                  className={`btn flex-1 ${configMode === 'advanced' ? 'bg-gray-900 text-white' : 'border border-gray-200'}`}
+                >
+                  高级模式
+                </button>
+              </div>
+            </div>
+
+            {configMode === 'simple' ? (
+              // 简易模式
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">连接码</label>
+                  <input
+                    type="text"
+                    value={connectionCode}
+                    onChange={(e) => setConnectionCode(e.target.value)}
+                    className="input"
+                    placeholder="请输入连接码"
+                  />
+                </div>
+                <div className="text-sm text-gray-500">
+                  <p>没有连接码？</p>
+                  <a 
+                    href="https://example.com/get-code" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    点击这里获取连接码
+                  </a>
+                </div>
+                <button
+                  onClick={handleConnect}
+                  disabled={isConnecting}
+                  className="btn bg-gray-900 hover:bg-gray-800 text-white w-full"
+                >
+                  {isConnecting ? '连接中...' : '连接'}
+                </button>
+              </div>
+            ) : (
+              // 高级模式
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">MinIO 端点</label>
+                  <input
+                    type="text"
+                    value={config.endpoint}
+                    onChange={(e) => setConfig(prev => ({ ...prev, endpoint: e.target.value }))}
+                    className="input"
+                    placeholder="例如: http://s3.example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Access Key</label>
+                  <input
+                    type="text"
+                    value={config.accessKey}
+                    onChange={(e) => setConfig(prev => ({ ...prev, accessKey: e.target.value }))}
+                    className="input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Secret Key</label>
+                  <input
+                    type="password"
+                    value={config.secretKey}
+                    onChange={(e) => setConfig(prev => ({ ...prev, secretKey: e.target.value }))}
+                    className="input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">区域</label>
+                  <input
+                    type="text"
+                    value={config.region}
+                    onChange={(e) => setConfig(prev => ({ ...prev, region: e.target.value }))}
+                    className="input"
+                    placeholder="例如: us-east-1"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">存储桶</label>
+                  <input
+                    type="text"
+                    value={config.bucket}
+                    onChange={(e) => setConfig(prev => ({ ...prev, bucket: e.target.value }))}
+                    className="input"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 p-4 border-t border-border">
+              <button
+                onClick={() => setShowConfig(false)}
+                className="btn border border-gray-200 hover:bg-gray-100"
+              >
+                取消
+              </button>
+              {configMode === 'advanced' && (
+                <button
+                  onClick={saveConfig}
+                  className="btn bg-gray-900 hover:bg-gray-800 text-white"
+                >
+                  保存配置
+                </button>
+              )}
             </div>
           </div>
         </div>
