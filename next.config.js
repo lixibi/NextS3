@@ -6,6 +6,8 @@ const nextConfig = {
   },
   // 添加 Vercel 相关配置
   typescript: {
+    // !! 警告 !!
+    // 在生产环境中禁用类型检查
     ignoreBuildErrors: true,
   },
   swcMinify: true,
