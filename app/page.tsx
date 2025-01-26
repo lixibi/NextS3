@@ -353,17 +353,40 @@ export default function Home() {
     }
   };
 
-  // 按日期分组文件
+  // 添加获取相对日期的函数
+  const getRelativeDate = (date: Date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const twoDaysAgo = new Date(today);
+    twoDaysAgo.setDate(today.getDate() - 2);
+
+    // 重置时间部分，只比较日期
+    const compareDate = new Date(date);
+    [today, yesterday, twoDaysAgo, compareDate].forEach(d => {
+      d.setHours(0, 0, 0, 0);
+    });
+
+    if (compareDate.getTime() === today.getTime()) {
+      return '今天';
+    } else if (compareDate.getTime() === yesterday.getTime()) {
+      return '昨天';
+    } else if (compareDate.getTime() === twoDaysAgo.getTime()) {
+      return '前天';
+    } else {
+      return format(date, 'MM-dd', { locale: zhCN });
+    }
+  };
+
+  // 修改 groupFilesByDate 函数
   const groupFilesByDate = (files: FileType[]) => {
     const filtered = files.filter(file => {
       const searchLower = searchTerm.toLowerCase();
       const keyLower = file.Key.toLowerCase();
       
-      // 搜索匹配：文件名或文本内容
       const matchesSearch = keyLower.includes(searchLower) || 
         (file.Preview && file.Preview.toLowerCase().includes(searchLower));
 
-      // 类型匹配
       const matchesType = filterType === 'all' 
         ? true 
         : filterType === 'message' 
@@ -375,8 +398,11 @@ export default function Home() {
       return matchesSearch && matchesType;
     });
 
+    // 按日期降序排序文件
+    filtered.sort((a, b) => b.LastModified.getTime() - a.LastModified.getTime());
+
     return filtered.reduce((groups: Record<string, FileType[]>, file) => {
-      const date = format(new Date(file.LastModified), 'yyyy年MM月dd日', { locale: zhCN });
+      const date = getRelativeDate(new Date(file.LastModified));
       if (!groups[date]) {
         groups[date] = [];
       }
@@ -385,8 +411,16 @@ export default function Home() {
     }, {});
   };
 
+  // 添加自动刷新机制
   useEffect(() => {
     refreshFiles();
+    
+    // 设置定期刷新
+    const refreshInterval = setInterval(() => {
+      refreshFiles();
+    }, 5000); // 每5秒刷新一次
+    
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const refreshFiles = async () => {
@@ -408,6 +442,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error listing files:', error);
+      showToast('刷新列表失败');
     }
   };
 
@@ -417,9 +452,11 @@ export default function Home() {
     try {
       await uploadText(text);
       setText('');
-      await refreshFiles();
+      await refreshFiles(); // 等待刷新完成
+      showToast('发送成功');
     } catch (error) {
       console.error('Error uploading text:', error);
+      showToast('发送失败');
     }
     setLoading(false);
   };
@@ -434,7 +471,8 @@ export default function Home() {
       await uploadFile(file, false, (progress) => {
         setUploadProgress(progress);
       });
-      await refreshFiles();
+      await refreshFiles(); // 等待刷新完成
+      showToast('上传成功');
       e.target.value = '';
     } catch (error: any) {
       if (error.code === 'FILE_EXISTS') {
@@ -446,6 +484,7 @@ export default function Home() {
         setShowOverwriteConfirm(true);
       } else {
         console.error('Error uploading file:', error);
+        showToast('上传失败');
       }
     } finally {
       setIsUploading(false);
@@ -475,14 +514,15 @@ export default function Home() {
     try {
       if (key.startsWith('text-')) {
         await deleteFile(key);
+        await refreshFiles(); // 等待刷新完成
+        showToast('删除成功');
       } else {
         setFileToDelete(key);
         setShowDeleteConfirm(true);
-        return;
       }
-      await refreshFiles();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting file:', error);
+      showToast(error.message || '删除失败');
     }
   };
 
@@ -491,12 +531,14 @@ export default function Home() {
     
     try {
       await deleteFile(fileToDelete);
-      await refreshFiles();
-    } catch (error) {
+      await refreshFiles(); // 等待刷新完成
+      showToast('删除成功');
+      setShowDeleteConfirm(false);
+      setFileToDelete(null);
+    } catch (error: any) {
       console.error('Error deleting file:', error);
+      showToast(error.message || '删除失败');
     }
-    setShowDeleteConfirm(false);
-    setFileToDelete(null);
   };
 
   // 修改筛选逻辑
@@ -526,11 +568,13 @@ export default function Home() {
       await uploadFile(fileToUpload, true, (progress) => {
         setUploadProgress(progress);
       });
-      await refreshFiles();
+      await refreshFiles(); // 等待刷新完成
+      showToast('文件已覆盖');
       setShowOverwriteConfirm(false);
       setFileToUpload(null);
     } catch (error) {
       console.error('Error uploading file:', error);
+      showToast('覆盖失败');
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -651,31 +695,32 @@ export default function Home() {
     };
   }, []);
 
+  const handleDownload = async (key: string) => {
+    try {
+      await downloadFile(key);
+    } catch (error: any) {
+      console.error('Error downloading file:', error);
+      showToast(error.message || '下载失败');
+    }
+  };
+
   return (
     <main className="min-h-screen p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
       {/* 标题区域 */}
-      <div className="relative group mb-8">
-        {/* 背景装饰 */}
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-50 to-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg" />
-        
-        {/* 科技感装饰线条 */}
-        <div className="absolute left-0 top-0 w-2 h-2 border-l-2 border-t-2 border-indigo-500 opacity-50" />
-        <div className="absolute right-0 bottom-0 w-2 h-2 border-r-2 border-b-2 border-emerald-500 opacity-50" />
-        
-        {/* 动态光效 */}
-        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-emerald-500 opacity-0 group-hover:opacity-10 blur transition-all duration-500 rounded-lg" />
-
-        {/* 内容区域 */}
-        <div className="relative p-4">
+      <div className="relative mb-8">
+        <div className="p-4">
           <div className="flex flex-col items-center">
-            <div className="flex items-center mb-2">
-              <span className="flex h-3 w-3 mr-3">
-                <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-              </span>
-              <h1 className="text-3xl font-bold text-gray-900">我的文件助手</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">多人文件助手</h1>
+            <div className="flex items-center justify-between w-full relative">
+              <div className="absolute inset-x-0 text-center">
+                <p className="text-sm text-gray-500">multfilehelper by hebeos</p>
+              </div>
+              <div className="ml-auto z-10">
+                <a href="/login" className="text-sm text-gray-500 hover:text-gray-900 transition-colors duration-200">
+                  登录
+                </a>
+              </div>
             </div>
-            <p className="text-sm text-gray-500">by 李喜碧</p>
           </div>
         </div>
       </div>
@@ -692,10 +737,12 @@ export default function Home() {
           <button
             onClick={handleTextSubmit}
             disabled={!text.trim() || loading}
-            className={`btn bg-indigo-500 hover:bg-indigo-600 text-white flex items-center gap-2 ${(!text.trim() || loading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`btn bg-gray-900 hover:bg-gray-800 text-white flex items-center gap-2 ${
+              (!text.trim() || loading) ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             <MessageSquareText className="w-5 h-5" />
-            {loading ? '记录中...' : '记录信息'}
+            {loading ? '发送中...' : '发送消息'}
           </button>
         </div>
       </div>
@@ -710,7 +757,10 @@ export default function Home() {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted flex-1 text-center">
+            {!fileToUpload && "或将文件拖放到此处"}
+          </p>
           <input
             ref={fileInputRef}
             type="file"
@@ -720,17 +770,12 @@ export default function Home() {
           />
           <label
             htmlFor="fileInput"
-            className="btn bg-emerald-500 hover:bg-emerald-600 text-white flex items-center gap-2 cursor-pointer"
+            className="btn bg-gray-900 hover:bg-gray-800 text-white flex items-center gap-2 cursor-pointer"
           >
             <File className="w-5 h-5" />
             选择文件
           </label>
         </div>
-        {!fileToUpload && (
-          <p className="text-sm text-muted text-center mt-2">
-            或将文件拖放到此处
-          </p>
-        )}
         {isUploading && (
           <div className="mt-4">
             <div className="h-2 bg-background rounded-full overflow-hidden">
@@ -771,31 +816,27 @@ export default function Home() {
             <div className="flex gap-2 ml-auto">
               <button
                 onClick={() => setFilterType('all')}
-                className={`btn ${filterType === 'all' ? 'bg-violet-500 hover:bg-violet-600 text-white' : 'btn-outline hover:bg-violet-50'} flex items-center gap-2`}
+                className={`btn ${filterType === 'all' ? 'bg-gray-900 text-white' : 'border border-gray-200'} hover:bg-gray-800 hover:text-white flex items-center gap-2`}
               >
                 <Filter className="w-4 h-4" />
-            
               </button>
               <button
                 onClick={() => setFilterType('message')}
-                className={`btn ${filterType === 'message' ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'btn-outline hover:bg-blue-50'} flex items-center gap-2`}
+                className={`btn ${filterType === 'message' ? 'bg-gray-900 text-white' : 'border border-gray-200'} hover:bg-gray-800 hover:text-white flex items-center gap-2`}
               >
                 <MessageSquareText className="w-4 h-4" />
-          
               </button>
               <button
                 onClick={() => setFilterType('media')}
-                className={`btn ${filterType === 'media' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'btn-outline hover:bg-emerald-50'} flex items-center gap-2`}
+                className={`btn ${filterType === 'media' ? 'bg-gray-900 text-white' : 'border border-gray-200'} hover:bg-gray-800 hover:text-white flex items-center gap-2`}
               >
                 <Image className="w-4 h-4" />
-           
               </button>
               <button
                 onClick={() => setFilterType('file')}
-                className={`btn ${filterType === 'file' ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'btn-outline hover:bg-amber-50'} flex items-center gap-2`}
+                className={`btn ${filterType === 'file' ? 'bg-gray-900 text-white' : 'border border-gray-200'} hover:bg-gray-800 hover:text-white flex items-center gap-2`}
               >
                 <File className="w-4 h-4" />
-              
               </button>
             </div>
           </div>
@@ -814,8 +855,8 @@ export default function Home() {
             return matchesSearch && matchesType(file);
           }))).map(([date, groupFiles]) => (
             <div key={date} className="space-y-3">
-              <h2 className="flex items-center gap-2 text-lg font-semibold text-card-foreground">
-                <Calendar className="w-5 h-5 text-muted" />
+              <h2 className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-medium text-gray-900">
+                <Calendar className="w-4 h-4" />
                 {date}
               </h2>
               <div className="space-y-2">
@@ -867,7 +908,7 @@ export default function Home() {
                             e.stopPropagation();
                             copyToClipboard(file.Preview || '');
                           }}
-                          className="icon-btn"
+                          className="icon-btn hover:text-gray-900"
                           title="复制"
                         >
                           <Copy className="w-5 h-5" />
@@ -876,9 +917,9 @@ export default function Home() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          downloadFile(file.Key);
+                          handleDownload(file.Key);
                         }}
-                        className="icon-btn"
+                        className="icon-btn hover:text-gray-900"
                         title="下载"
                       >
                         <Download className="w-5 h-5" />
@@ -888,7 +929,7 @@ export default function Home() {
                           e.stopPropagation();
                           handleDelete(file.Key);
                         }}
-                        className="icon-btn text-red-500 hover:text-red-600"
+                        className="icon-btn hover:text-red-600"
                         title="删除"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -914,7 +955,7 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => copyToClipboard(selectedText)}
-                  className="icon-btn"
+                  className="icon-btn hover:text-gray-900"
                   title="复制"
                 >
                   <Copy className="w-5 h-5" />
@@ -951,13 +992,13 @@ export default function Home() {
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="btn btn-outline"
+                  className="btn border border-gray-200 hover:bg-gray-100 text-gray-700"
                 >
                   取消
                 </button>
                 <button
                   onClick={confirmDelete}
-                  className="btn bg-red-500 hover:bg-red-600 text-white"
+                  className="btn bg-gray-900 hover:bg-gray-800 text-white"
                 >
                   确认删除
                 </button>
@@ -997,13 +1038,13 @@ export default function Home() {
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowOverwriteConfirm(false)}
-                  className="btn btn-outline"
+                  className="btn border border-gray-200 hover:bg-gray-100 text-gray-700"
                 >
                   取消
                 </button>
                 <button
                   onClick={confirmOverwrite}
-                  className="btn btn-primary"
+                  className="btn bg-gray-900 hover:bg-gray-800 text-white"
                 >
                   确认覆盖
                 </button>

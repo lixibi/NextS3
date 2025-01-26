@@ -2,6 +2,7 @@ import { PutObjectCommand, GetObjectCommand, ListObjectsCommand, DeleteObjectCom
 import { getSignedUrl as s3GetSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "./s3Client";
 import { S3Client, ServiceInputTypes, ServiceOutputTypes } from "@aws-sdk/client-s3";
+import { format } from "date-fns";
 
 // 使用 s3Client.ts 中已经验证过的环境变量
 const BUCKET_NAME = process.env.NEXT_PUBLIC_S3_BUCKET!;
@@ -187,21 +188,40 @@ export const downloadFile = async (key: string) => {
   
   try {
     const response = await s3Client.send(command);
-    const blob = await response.Body?.transformToByteArray();
-    if (!blob) throw new Error('下载失败');
+    if (!response.Body) {
+      throw new Error('文件内容为空');
+    }
+    
+    const blob = await response.Body.transformToByteArray();
+    let downloadUrl: string;
+    let filename: string;
+
+    if (key.startsWith('text-')) {
+      // 文本消息特殊处理
+      const text = new TextDecoder('utf-8').decode(blob);
+      const textBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      downloadUrl = URL.createObjectURL(textBlob);
+      filename = `消息_${format(new Date(), 'yyyyMMdd_HHmmss')}.txt`;
+    } else {
+      // 其他文件正常处理
+      downloadUrl = URL.createObjectURL(new Blob([blob]));
+      filename = key;
+    }
     
     // 创建下载链接
-    const url = URL.createObjectURL(new Blob([blob]));
     const link = document.createElement('a');
-    link.href = url;
-    link.download = key;
+    link.href = downloadUrl;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  } catch (error) {
+    URL.revokeObjectURL(downloadUrl);
+  } catch (error: any) {
     console.error('下载文件时出错:', error);
-    throw error;
+    if (error.name === 'NoSuchKey') {
+      throw new Error('文件不存在或已被删除');
+    }
+    throw new Error('下载失败，请重试');
   }
 };
 
@@ -267,10 +287,29 @@ export const deleteFile = async (key: string) => {
   });
   
   try {
+    // 先检查文件是否存在
+    const checkCommand = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+    });
+    
+    try {
+      await s3Client.send(checkCommand);
+    } catch (error: any) {
+      if (error.name === 'NoSuchKey') {
+        throw new Error('文件不存在或已被删除');
+      }
+      throw error;
+    }
+    
+    // 文件存在，执行删除
     await s3Client.send(command);
-  } catch (error) {
+  } catch (error: any) {
     console.error('删除文件时出错:', error);
-    throw error;
+    if (error.message === '文件不存在或已被删除') {
+      throw error;
+    }
+    throw new Error('删除失败，请重试');
   }
 };
 
