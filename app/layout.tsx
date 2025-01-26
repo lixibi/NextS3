@@ -1,10 +1,7 @@
-'use client';
-
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { ClientLayout } from "./client-layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,16 +28,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    const isAuthenticated = localStorage.getItem('isAuthenticated');
-    if (!isAuthenticated && pathname !== '/login') {
-      router.push('/login');
-    }
-  }, [pathname]);
-
   return (
     <html lang="en">
       <head>
@@ -49,10 +36,8 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#000000" />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );
