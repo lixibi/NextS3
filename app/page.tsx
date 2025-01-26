@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { uploadText, uploadFile, listFiles, downloadFile, previewTextFile, deleteFile, getSignedUrl, previewImage as getPreviewImageUrl } from '@/utils/s3Operations';
+import { uploadText, uploadFile, listFiles, downloadFile, previewTextFile, deleteFile, previewImage as getPreviewImageUrl } from '@/utils/s3Operations';
 import { 
   MessageSquareText,
   Image, 
